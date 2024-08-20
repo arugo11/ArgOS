@@ -748,3 +748,93 @@ fin:
 
 ```
 
+### harib01a
+#### 概要
+画面になにか表示するためにVRAMメモリに書き込む必要があるがc言語からメモリに書き込む方法がないのでnaskfunc.nasにアセンブラで関数を実装する
+
+#### naskfunc.nas
+##### C言語が使用して良い32bitレジスタ
+- EAX
+- ECX
+- EDX
+##### ソースコードについて
+- [INSTRSET "i486p"] : 486アーキテクチャを使うよという意味,デフォルトだと8086アーキテクチャと呼ばれる古い仕様を参照してしまう,このままだとECXをラベル名もしくはただの定数として参照してしまうため指定が必要。
+##### ESPの挙動について
+```
+高位アドレス
++------------+
+| 0x00AB     | ESP+11
+|            | ESP+10
+|            | ESP+9
+|            | ESP+8
++------------+
+| 0x1234     | ESP+7
+|            | ESP+6
+|            | ESP+5
+|            | ESP+4
++------------+
+| ret部分     | ESP+3
+|            | ESP+2
+|            | ESP+1
+|            | ESP+0 (ESP が指す位置)
++------------+
+低位アドレス
+```
+ESPは以上のようにスタックのトップを表しています.
+##### 関数の引数とESP
+関数の引数は右から左(今回はdata->addrの順)にスタックされるので引数がプッシュされた段階では以下のようなスタックになっている  
+[ESP,addr,data]なのでESP+4はaddrを指しESP+8はdataを指す
+write_mem8(ターゲットアドレス,書き込むデータ)
+##### 関数の流れ
+1. ECXにaddrを読み込む
+2. ALに書き込みたいdataを読み込む(今回は15:白)
+3. ECXに格納されてるaddrにALの値を代入する
+naskfunc.nas
+```
+[FORMAT "WCOFF"]				; オブジェクトファイルを作るモード	
+[INSTRSET "i486p"]				; 486の命令まで使いたいという記述
+[BITS 32]						; 32ビットモード用の機械語を作らせる
+[FILE "naskfunc.nas"]			; ソースファイル名情報
+
+		GLOBAL	_io_hlt,_write_mem8
+
+[SECTION .text]
+
+_io_hlt:	; void io_hlt(void);
+		HLT
+		RET
+
+_write_mem8:	; void write_mem8(int addr, int data);
+		MOV		ECX,[ESP+4]		; [ESP+4]にaddrが入っているのでそれをECXに読み込む
+		MOV		AL,[ESP+8]		; [ESP+8]にdataが入っているのでそれをALに読み込む
+		MOV		[ECX],AL
+		RET
+
+```
+#### bootpack.c
+前述の通り,順番にメモリに15という値を入力している.
+bootpack.c
+```c
+
+void io_hlt(void);
+void write_mem8(int addr, int data);
+
+void HariMain(void)
+{
+	int i; /* 変数宣言。iという変数は、32ビットの整数型 */
+
+	for (i = 0xa0000; i <= 0xaffff; i++) {
+		write_mem8(i, 15); /* MOV BYTE [i],15 */
+	}
+
+	for (;;) {
+		io_hlt();
+	}
+}
+```
+
+#### 結果
+##### data == 15のとき
+![data == 15のとき](image-5.png)
+##### data == 10のとき
+![data == 10のとき](image-6.png)
