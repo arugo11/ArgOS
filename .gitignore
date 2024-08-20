@@ -1,3 +1,11 @@
+.vscode/
+
 *.img
 *.sys
 *.bin
+*.nas
+*.bim
+*.gas
+*.hrb
+*.map
+*.obj

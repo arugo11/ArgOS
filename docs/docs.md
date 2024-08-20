@@ -630,3 +630,65 @@ fin:
 		JMP		fin
 
 ```
+
+### harib00i
+#### 概要
+c言語を導入する  
+それにあたって,c言語をアセンブラと合併しなくてはならない。そのため以下の手順で合併する.
+#### .cを機械語に変換する手順
+1. cc1.exe(改造gcc)で.c(c言語ソースコード)を.gas(アセンブラ)に変換
+2. gas2naskで.gasを.nas(独自アセンブラnask)に変換
+3. nask.exeで.nasを.obj(オブジェクトファイル)に変換
+4. obj2bimで.objを.bim(BInary Image:2進数イメージファイル)に変換
+5. bim2hrbで.bimを.hrb(機械語)に変換
+6. .hrbとasmhead.binをくっつけてharibote.sysとする
+
+#### bootpack.c
+現段階でc言語ファイルに意味はない
+```c
+void HariMain(void)
+{
+
+fin:
+	/* ここにHLTを入れたいのだが、C言語ではHLTが使えない！ */
+	goto fin;
+
+}
+
+```
+
+#### ログを確認してみる
+```batch
+C:\Users\[username]\[path]\harib>make run
+
+C:\Users\[username]\[path]\harib>..\z_tools\make.exe run
+../z_tools/make.exe -r img
+make.exe[1]: Entering directory `C:/Users/[username]/[path]/harib'
+../z_tools/make.exe -r haribote.img
+make.exe[2]: Entering directory `C:/Users/[username]/[path]/harib'
+../z_tools/nask.exe asmhead.nas asmhead.bin asmhead.lst
+../z_tools/cc1.exe -I../z_tools/haribote/ -Os -Wall -quiet -o bootpack.gas bootpack.c
+../z_tools/gas2nask.exe -a bootpack.gas bootpack.nas
+../z_tools/nask.exe bootpack.nas bootpack.obj bootpack.lst
+../z_tools/obj2bim.exe @../z_tools/haribote/haribote.rul out:bootpack.bim stack:3136k map:bootpack.map \
+        bootpack.obj
+../z_tools/bim2hrb.exe bootpack.bim bootpack.hrb 0
+copy /B asmhead.bin+bootpack.hrb haribote.sys
+asmhead.bin
+bootpack.hrb
+        1 個のファイルをコピーしました。
+../z_tools/edimg.exe   imgin:../z_tools/fdimg0at.tek \
+        wbinimg src:ipl10.bin len:512 from:0 to:0 \
+        copy from:haribote.sys to:@: \
+        imgout:haribote.img
+make.exe[2]: Leaving directory `C:/Users/[username]/[path]/harib'
+make.exe[1]: Leaving directory `C:/Users/[username]/[path]/harib'
+copy haribote.img ..\z_tools\qemu\fdimage0.bin
+        1 個のファイルをコピーしました。
+../z_tools/make.exe -r -C ../z_tools/qemu
+make.exe[1]: Entering directory `C:/Users/[username]/[path]/z_tools/qemu'
+qemu-win.bat
+
+C:\Users\[username]\[path]\z_tools\qemu>qemu.exe -L . -m 32 -localtime -std-vga -fda fdimage0.bin
+make.exe[1]: Leaving directory `C:/Users/[username]/[path]/z_tools/qemu'
+```
