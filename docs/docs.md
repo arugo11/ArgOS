@@ -520,3 +520,72 @@ fin:
 
 		ORG		0xc200			;
 ```
+
+### harib00g
+#### 概要
+OSの動作確認のため画面モード出力
+#### 画面モード切り替え
+```
+ビデオモード設定
+AH = 0x00;
+AL = モード： (マイナーな画面モードは省略しています)
+0x03：16色テキスト、80x25
+0x12：VGAグラフィックス、640x480x4bitカラー、独自プレーンアクセス
+0x13：VGAグラフィックス、320x200x8bitカラー、パックドピクセル
+0x6a：拡張VGAグラフィックス、800x600x4bitカラー、独自プレーンアクセス（ビデオカードによってはサポートされない）
+戻り値：なし
+```
+#### ipl10.nas
+10シリンダ分しか読み込んでいないことを明示的に表す
+また、0x0ff0番地に何シリンダまで読み込んだかを書き込む
+
+ipl10.nas
+```
+; 読み終わったのでharibote.sysを実行だ！
+
+		MOV		[0x0ff0],CH		; IPLがどこまで読んだのかをメモ
+		JMP		0xc200
+```
+#### haribote.nas
+
+haribote.nas
+```
+; haribote-os
+; TAB=4
+
+		ORG		0xc200			; このプログラムがどこに読み込まれるのか
+
+		MOV		AL,0x13			; VGAグラフィックス、320x200x8bitカラー
+		MOV		AH,0x00
+		INT		0x10
+fin:
+		HLT
+		JMP		fin
+
+```
+
+#### run時のエラー
+##### エラーログ
+```
+C:\Users\[username]\[path]\harib>..\z_tools\make.exe run
+../z_tools/make.exe -r img
+make.exe[1]: Entering directory `C:/Users/[username]/[path]/harib'
+../z_tools/make.exe -r haribote.img
+make.exe[2]: Entering directory `C:/Users/[username]/[path]/harib'
+../z_tools/nask.exe ipl10.nas ipl10.bin ipl10.lst
+../z_tools/nask.exe haribote.nas haribote.sys haribote.lst
+../z_tools/edimg.exe   imgin:../z_tools/fdimg0at.tek \
+        wbinimg src:ipl10.bin len:512 from:0 to:0 \
+        copy from:haribote.sys to:@: \
+        imgout:haribote.img
+opt-imgout store error. : haribote.img
+make.exe[2]: *** [haribote.img] Error 24
+make.exe[2]: Leaving directory `C:/Users/[username]/[path]/harib'
+make.exe[1]: *** [img] Error 2
+make.exe[1]: Leaving directory `C:/Users/[username]/[path]/harib'
+..\z_tools\make.exe: *** [run] Error 2
+```
+##### 解決法
+VMでharibote.imgを開きっぱなしなのが良くなかった.VMを停止し,haribote.imgを削除し再度runしたら正常に実行できた
+
+![haribote00gの画面モード](image-2.png)
