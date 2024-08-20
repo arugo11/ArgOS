@@ -692,3 +692,59 @@ qemu-win.bat
 C:\Users\[username]\[path]\z_tools\qemu>qemu.exe -L . -m 32 -localtime -std-vga -fda fdimage0.bin
 make.exe[1]: Leaving directory `C:/Users/[username]/[path]/z_tools/qemu'
 ```
+
+### haribote00j
+#### 概要
+hltの実装
+
+#### naskfunc.nas
+アセンブラで関数を書く,cソースコードも結局はobjファイルになるので問題なし  
+WCOFFにすることでオブジェクトファイルを作るモードになる.
+ソースファイル名を明示しなくてはならないので"[FILE "naskfunc.nas"]"とする.  
+プログラム内にどのような関数を実装したいかを書く,この時"_{関数名}"としないとC言語の関数と連携できない  
+#### 新出命令
+- RET命令 : return命令,c言語で関数を書く時と同じ用に関数の終了を明示する.  
+```
+; naskfunc
+; TAB=4
+
+[FORMAT "WCOFF"]				; オブジェクトファイルを作るモード	
+[BITS 32]						; 32ビットモード用の機械語を作らせる
+
+
+; オブジェクトファイルのための情報
+
+[FILE "naskfunc.nas"]			; ソースファイル名情報
+
+		GLOBAL	_io_hlt			; このプログラムに含まれる関数名
+
+
+; 以下は実際の関数
+
+[SECTION .text]		; オブジェクトファイルではこれを書いてからプログラムを書く
+
+_io_hlt:	; void io_hlt(void);
+		HLT
+		RET
+```
+
+#### bootpack.c
+```
+/* 他のファイルで作った関数がありますとCコンパイラに教える */
+
+void io_hlt(void);
+
+/* 関数宣言なのに、{}がなくていきなり;を書くと、
+	他のファイルにあるからよろしくね、という意味になるのです。 */
+
+void HariMain(void)
+{
+
+fin:
+	io_hlt(); /* これでnaskfunc.nasの_io_hltが実行されます */
+	goto fin;
+
+}
+
+```
+
