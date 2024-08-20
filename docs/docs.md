@@ -415,6 +415,7 @@ next:
 C0-H0-S18の次であるディスクの裏(ヘッダ1)C0-H1-S1を0xa400から読み込む,その後C0-H1-S18 -> C1-H1-S1 -> C9-H1-S18まで読み込ませる
 #### 新出命令
 - JB命令 : Jump if Below:小さければジャンプしなさい
+- EQU命令 : EQUal : #defineの用にマクロを設定する
 ```
 ; ディスクを読む
 
@@ -589,3 +590,43 @@ make.exe[1]: Leaving directory `C:/Users/[username]/[path]/harib'
 VMでharibote.imgを開きっぱなしなのが良くなかった.VMを停止し,haribote.imgを削除し再度runしたら正常に実行できた
 
 ![haribote00gの画面モード](image-2.png)
+
+### haribote00h
+#### 概要
+将来様々な画面モードに対応するために画面の情報をメモリにメモしておく,  
+VRAMは画面モードによって画素数が異なるためメモリマップ上に複数ある.  
+実行時の画面上の変化はない(メモリにメモしただけであるため)  
+haribote00h
+```
+haribote-os
+; TAB=4
+
+; BOOT_INFO関係
+CYLS	EQU		0x0ff0			; ブートセクタが設定する
+LEDS	EQU		0x0ff1
+VMODE	EQU		0x0ff2			; 色数に関する情報。何ビットカラーか？
+SCRNX	EQU		0x0ff4			; 解像度のX
+SCRNY	EQU		0x0ff6			; 解像度のY
+VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
+
+		ORG		0xc200			; このプログラムがどこに読み込まれるのか
+
+		MOV		AL,0x13			; VGAグラフィックス、320x200x8bitカラー
+		MOV		AH,0x00
+		INT		0x10
+		MOV		BYTE [VMODE],8	; 画面モードをメモする
+		MOV		WORD [SCRNX],320
+		MOV		WORD [SCRNY],200
+		MOV		DWORD [VRAM],0x000a0000
+
+; キーボードのLED状態をBIOSに教えてもらう
+
+		MOV		AH,0x02
+		INT		0x16 			; keyboard BIOS
+		MOV		[LEDS],AL
+
+fin:
+		HLT
+		JMP		fin
+
+```
