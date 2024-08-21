@@ -889,3 +889,99 @@ void HariMain(void)
 ```
 ![Alt text](image-8.png)
 
+### harib01c
+#### ポインタの導入
+write_mem8を廃止して代わりにポインタを用いる
+
+#### ポインタを導入したので改めてポインタとはなにか整理する
+今まで,write_mem8(addr,data)をしていた.
+これの意味は  
+'MOV [addr] data'を行っている.(正確には以下の通り)  
+```
+_write_mem8:	; void write_mem8(int addr, int data);
+		MOV		ECX,[ESP+4]		; [ESP+4]にaddrが入っているのでそれをECXに読み込む
+		MOV		AL,[ESP+8]		; [ESP+8]にdataが入っているのでそれをALに読み込む
+		MOV		[ECX],AL
+		RET
+```    
+これをポインタを用いることでアセンブラコードを用いずに同じことがしたい.  
+ここで用いられる概念が**ポインタ**  
+```c
+int addr, data;
+char *p;
+
+p = addr; // pにaddr(アドレス番地を渡す)
+*p = data; //addr番地のところになにかの処理を行う
+```
+という形で処理を行うことができる.    
+しかし、このままだとaddrとい整数はcのコンパイラ的にアドレス番地を表す数字ではなく,ただの整数という宗教であるため,明示的に示してあげる -> キャスト  
+```c
+int addr, data;
+char *p;
+
+p = (char *) addr; // pにaddr(アドレス番地を渡す)
+*p = data; //addr番地のところになにかの処理を行う
+```
+cコンパイラ的に何バイト書き込むかによって宣言が変わる  
+```c
+char *p //BYTE用番地の場合
+char *p //WORD用番地の場合
+char *p //DWORD用番地の場合
+```
+もちろん,pを用いずに実装することもできる  
+'(char *) addr'でaddrはただの整数ではなく,メモリ番地を示す整数であることをコンパイラに教え,それにアクセスしdataの値を与えることができる.  
+```c
+int addr, data
+*((char *) addr) = data
+```
+
+
+#### ポインタの概念を踏まえて,現在やっていることを整理する.
+現段階のcソースコードはこれ  
+```c
+void io_hlt(void);
+void write_mem8(int addr, int data);
+
+
+void HariMain(void)
+{
+	int i; /* 変数宣言。iという変数は、32ビットの整数型 */
+	char *p;
+	for (i = 0xa0000; i <= 0xaffff; i++) {
+		p = (char * )i;
+		*p = i & 0x0f;
+	}
+
+	for (;;) {
+		io_hlt();
+	}
+}
+
+```
+これでVRAMに'i'の値を書き込んでいる,
+##### では,なぜVRAMが0xa0000から始まることが分かる?
+asmhead.nasのBOOT_INFO関係と画面モード設定を参照することで分かる  
+'VRAM EQU 0x0ff8'でVRAMの開始番地が格納されている番地がメモされる,'MOV DWORD [VRAM],0x000a0000'で,VRAMの開始番地が0xa0000であることが決まるという形である  
+asmhead.nas
+```
+
+; BOOT_INFO関係
+CYLS	EQU		0x0ff0			; ブートセクタが設定する
+LEDS	EQU		0x0ff1
+VMODE	EQU		0x0ff2			; 色数に関する情報。何ビットカラーか？
+SCRNX	EQU		0x0ff4			; 解像度のX
+SCRNY	EQU		0x0ff6			; 解像度のY
+VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
+
+		ORG		0xc200			; このプログラムがどこに読み込まれるのか
+
+; 画面モードを設定
+
+		MOV		AL,0x13			; VGAグラフィックス、320x200x8bitカラー
+		MOV		AH,0x00
+		INT		0x10
+		MOV		BYTE [VMODE],8	; 画面モードをメモする（C言語が参照する）
+		MOV		WORD [SCRNX],320
+		MOV		WORD [SCRNY],200
+		MOV		DWORD [VRAM],0x000a0000
+```
