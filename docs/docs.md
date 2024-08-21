@@ -985,3 +985,123 @@ VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
 		MOV		WORD [SCRNY],200
 		MOV		DWORD [VRAM],0x000a0000
 ```
+
+### harib01d ~ e
+#### 概要
+ポインタの復習なので割愛
+```c
+p = (char *) 0xa;
+for (int i = 0; i < 0xffff; i++) *(p + i) = i & 0xf;
+```
+```c
+p = (char *) 0xa;
+for (int i = 0; i < 0xffff; i++) p[i] = i & 0xf;
+```
+
+### harib01f
+#### 概要
+色のパレットを設定する.
+#### 設定方法
+[ビデオDAコンバータのパレットのアクセス手順を参照する](http://oswiki.osask.jp/?VGA#:~:text=0%E3%81%A8%E8%A6%8B%E3%81%AA%E3%81%99-,%E3%83%91%E3%83%AC%E3%83%83%E3%83%88%E3%81%AE%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9%E3%81%AE%E6%89%8B%E9%A0%86,-%E3%81%BE%E3%81%9A%E4%B8%80%E9%80%A3%E3%81%AE)
+以下を行う
+##### パレットのアクセスの手順
+- まず一連のアクセス中に割り込みなどが入らないようにする（たとえばCLI）。
+- 0x03c8に設定したいパレット番号を書き込み、続いて、R、G、Bの順に0x03c9に書き込む。もし次のパレットも続けて設定したいのなら、パレット番号の設定を省略して、さらにRGBの順に0x03c9に書き込んでよい。
+- 現在のパレット状態を読み出すときは、まず0x03c7にパレット番号を書き込んで、0x03c9を3回読み出す。これが順にR、G、Bになっている。これももし次のパレットも読み出したいときは、パレット番号の設定を省略してRGBの順に読み出してよい。
+- 最初にCLIした場合は、最後にSTIする。
+
+#### CLI,STI命令
+- CLI : CLear Interrupt flag : 割り込みフラグ(interrupt flag)を0にする命令
+- STI : STe Interrupt flag : 割り込みフラグ(interrupt flag)を1にする命令
+CPUから割り込み要求信号が来たときに無視するかどうかのフラグ,無視が0  
+#### EFLAGS,FLAGS
+EFLAGS : FLAGSを32bitに拡張したやつ
+##### FLAGS  
+|0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|
+|-|-|-|-|-|-|-|-|-|-|--|--|--|--|--|--|
+|CF||PF||AF||ZF|SF|TF|IF|DF|OF|IOPL|IOPL|NT||  
+
+**今回はIF(Interrpt Flag)、つまり第9bit目が0か1で判断**
+#### io_loat_eflags
+##### PUSHFD命令
+- PUSHFD : PUSH Flags Double-word : フラグをダブルワードで(スタックに)押し込む
+```
+_io_load_eflags:	; int io_load_eflags(void);
+		PUSHFD		; PUSH EFLAGS という意味
+		POP		EAX
+		RET
+```
+
+##### DX,ALについて
+- DX : データ
+- AL : AXのLOW
+- AX : 累積演算器
+#### io_out8
+- 'MOV EDX, [ESP+4]'でportの情報をEDXに渡す、この時最終的にDXで下位16bitのみになるが32bit環境で実行しているためコードの一貫性を保つためにもEDXで受け取る  
+- 'MOV AL,[ESP+8]'
+- 'OUT DX,AL' : 
+- 'RET'
+
+##### OUT命令
+- OUT命令 : 装置に電気信号を送る信号
+```
+_io_out8:	; void io_out8(int port, int data);
+		MOV		EDX,[ESP+4]		; port
+		MOV		AL,[ESP+8]		; data
+		OUT		DX,AL
+		RET
+```
+#### set_palette
+```c
+void set_palette(int start, int end, unsigned char *rgb)
+{
+	int i, eflags;
+	eflags = io_load_eflags();	/* 割り込み許可フラグの値を記録する */
+	io_cli(); 					/* 許可フラグを0にして割り込み禁止にする */
+	io_out8(0x03c8, start); //0x03c8に設定したいパレット番号を書き込み
+	for (i = start; i <= end; i++) { //続いて、R、G、Bの順に0x03c9に書き込む,
+		io_out8(0x03c9, rgb[0] / 4);
+		io_out8(0x03c9, rgb[1] / 4);
+		io_out8(0x03c9, rgb[2] / 4);
+		rgb += 3;
+	}//もし次のパレットも続けて設定したいのなら、パレット番号の設定を省略して、さらにRGBの順に0x03c9に書き込んでよい。
+	io_store_eflags(eflags);	/* 割り込み許可フラグを元に戻す */
+	return;
+}
+
+```
+
+
+#### init_palette(void)
+ただ,rgbの表を作成するだけ
+init_palette(void)
+```c
+void init_palette(void)
+{
+	static unsigned char table_rgb[16 * 3] = {
+		0x00, 0x00, 0x00,	/*  0:黒 */
+		0xff, 0x00, 0x00,	/*  1:明るい赤 */
+		0x00, 0xff, 0x00,	/*  2:明るい緑 */
+		0xff, 0xff, 0x00,	/*  3:明るい黄色 */
+		0x00, 0x00, 0xff,	/*  4:明るい青 */
+		0xff, 0x00, 0xff,	/*  5:明るい紫 */
+		0x00, 0xff, 0xff,	/*  6:明るい水色 */
+		0xff, 0xff, 0xff,	/*  7:白 */
+		0xc6, 0xc6, 0xc6,	/*  8:明るい灰色 */
+		0x84, 0x00, 0x00,	/*  9:暗い赤 */
+		0x00, 0x84, 0x00,	/* 10:暗い緑 */
+		0x84, 0x84, 0x00,	/* 11:暗い黄色 */
+		0x00, 0x00, 0x84,	/* 12:暗い青 */
+		0x84, 0x00, 0x84,	/* 13:暗い紫 */
+		0x00, 0x84, 0x84,	/* 14:暗い水色 */
+		0x84, 0x84, 0x84	/* 15:暗い灰色 */
+	};
+	set_palette(0, 15, table_rgb);
+	return;
+
+	/* static char 命令は、データにしか使えないけどDB命令相当 */
+}
+```
+
+
+#### io_load_eflags()
