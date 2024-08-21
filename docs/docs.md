@@ -1102,6 +1102,10 @@ void init_palette(void)
 	/* static char 命令は、データにしか使えないけどDB命令相当 */
 }
 ```
+![Alt text](image-9.png)
 
+### harib01g,f
+#### 概要
+四角形を描画してOSっぽい画面つくるだけ
+![Alt text](image-10.png)
 
-#### io_load_eflags()
