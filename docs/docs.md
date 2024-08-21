@@ -838,3 +838,54 @@ void HariMain(void)
 ![data == 15のとき](image-5.png)
 ##### data == 10のとき
 ![data == 10のとき](image-6.png)
+
+### harib01b
+#### 概要
+しましま模様の作成
+#### 0x0fをAND演算
+0x0fは15(10)なので00001111(2),つまり下位4bitのみを取り出す.  
+つまり,色指定の際0 ~ 15の値を繰り返す様になる.
+```
+void io_hlt(void);
+void write_mem8(int addr, int data);
+
+
+void HariMain(void)
+{
+	int i; /* 変数宣言。iという変数は、32ビットの整数型 */
+
+	for (i = 0xa0000; i <= 0xaffff; i++) {
+		write_mem8(i, i & 0x0f);
+	}
+
+	for (;;) {
+		io_hlt();
+	}
+}
+
+```
+![しましま](image-7.png)
+
+#### iの値をそのまま色指定
+してみた,結果0 ~ 255の色の値をスライドしていった.
+```
+void io_hlt(void);
+void write_mem8(int addr, int data);
+
+
+void HariMain(void)
+{
+	int i; /* 変数宣言。iという変数は、32ビットの整数型 */
+
+	for (i = 0xa0000; i <= 0xaffff; i++) {
+		write_mem8(i, i);
+	}
+
+	for (;;) {
+		io_hlt();
+	}
+}
+
+```
+![Alt text](image-8.png)
+

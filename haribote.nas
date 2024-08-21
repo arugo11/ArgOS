@@ -5,8 +5,8 @@
 CYLS	EQU		0x0ff0			; ブートセクタが設定する
 LEDS	EQU		0x0ff1
 VMODE	EQU		0x0ff2			; 色数に関する情報。何ビットカラーか？
-SCRNX	EQU		0x0ff4			; 解像度のX
-SCRNY	EQU		0x0ff6			; 解像度のY
+SCRNX	EQU		0x0ff4			; 解像度のXのメモリ番地
+SCRNY	EQU		0x0ff6			; 解像度のYのメモリ番地
 VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
 
 		ORG		0xc200			; このプログラムがどこに読み込まれるのか
