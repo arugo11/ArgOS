@@ -1109,3 +1109,97 @@ void init_palette(void)
 四角形を描画してOSっぽい画面つくるだけ
 ![Alt text](image-10.png)
 
+## Day5
+### harib02a
+#### 概要
+他の画面モードにしたときにVRAMの開始番地やx,yのサイズが変わるので動的に取得できるようにする  
+
+#### harimain()
+ポインタでやるだけ  
+- binfo : bootinfoの意  
+```c
+void HariMain(void)
+{
+	char *vram;
+	int xsize, ysize;
+	short *binfo_scrnx, *binfo_scrny;
+	int *binfo_vram;
+
+	init_palette();
+	binfo_scrnx = (short *) 0x0ff4;
+	binfo_scrny = (short *) 0x0ff6;
+	binfo_vram = (int *) 0x0ff8;
+	xsize = *binfo_scrnx;
+	ysize = *binfo_scrny;
+	vram = (char *) *binfo_vram;
+
+	init_screen(vram, xsize, ysize);
+
+	for (;;) {
+		io_hlt();
+	}
+}
+```
+
+#### 参考 : asmhead.nas
+```
+; BOOT_INFO関係
+CYLS	EQU		0x0ff0			; ブートセクタが設定する
+LEDS	EQU		0x0ff1
+VMODE	EQU		0x0ff2			; 色数に関する情報。何ビットカラーか？
+SCRNX	EQU		0x0ff4			; 解像度のX
+SCRNY	EQU		0x0ff6			; 解像度のY
+VRAM	EQU		0x0ff8			; グラフィックバッファの開始番地
+
+		ORG		0xc200			; このプログラムがどこに読み込まれるのか
+
+; 画面モードを設定
+
+		MOV		AL,0x13			; VGAグラフィックス、320x200x8bitカラー
+		MOV		AH,0x00
+		INT		0x10
+		MOV		BYTE [VMODE],8	; 画面モードをメモする（C言語が参照する）
+		MOV		WORD [SCRNX],320
+		MOV		WORD [SCRNY],200
+		MOV		DWORD [VRAM],0x000a0000
+```
+#### harib01b
+### 概要
+構造体を用いてシンプルにBOOTINFOを表す
+
+### 構造体とポインタ(おもしろい)
+|0x0ff0|0x0ff1|0x0ff2|0x0ff3|0x0ff4|0x0ff5|0x0ff6|0x0ff7|0x0ff8|0x0ff9|0x0ffa|0x0ffb|
+|------|------|------|------|------|------|------|------|------|------|------|------|
+| cyls | leds | vmode| reserve | SCRNX (2 bytes) | SCRNX (2 bytes) | SCRNY (2 bytes) |SCRNY (2 bytes) |    VRAM (4 bytes)   |   VRAM (4 bytes)   |   VRAM (4 bytes)   |   VRAM (4 bytes)   |  
+
+これで先頭を示してる
+```
+binfo = (struct BOOTINFO *) 0x0ff0;
+```
+
+```
+struct BOOTINFO {
+	char cyls, leds, vmode, reserve;
+	short scrnx, scrny;
+	char *vram;
+};
+
+void HariMain(void)
+{
+	char *vram;
+	int xsize, ysize;
+	struct BOOTINFO *binfo;
+
+	init_palette();
+	binfo = (struct BOOTINFO *) 0x0ff0;
+	xsize = (*binfo).scrnx;
+	ysize = (*binfo).scrny;
+	vram = (*binfo).vram;
+
+	init_screen(vram, xsize, ysize);
+
+	for (;;) {
+		io_hlt();
+	}
+}
+```
